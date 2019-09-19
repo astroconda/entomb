@@ -53,7 +53,7 @@ def spec_read(filename):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-b', '--base-dir')
-    parser.add_argument('-c', '--clobber')
+    parser.add_argument('-c', '--clobber', action='store_true')
     parser.add_argument('spec_file')
     args = parser.parse_args()
 
