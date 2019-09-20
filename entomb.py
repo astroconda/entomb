@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-import os
 import argparse
+import os
+import fnmatch
 import requests
 import shutil
 
@@ -11,7 +12,7 @@ def channel_dir(d):
     return channel
 
 
-def download(url, destdir='.', clobber=True):
+def download(url, destdir='.', clobber=True, in_memory=False):
     filename = url.split('/')[-1]
 
     if destdir != '.':
@@ -33,11 +34,19 @@ def download(url, destdir='.', clobber=True):
     print("Downloading: {} -> {}".format(url, destdir))
     r = requests.get(url, stream = True)
 
+    if r.status_code != 200:
+        print("HTTP ERROR[{}]: Could not download: {}".format(r.status_code, url))
+        return ""
+
+    if in_memory:
+        return r.contents
+
     with open(outfile,"w+b") as fp:
         for chunk in r.iter_content(chunk_size=0xFFFF):
             if chunk:
                 fp.write(chunk)
     return outfile
+
 
 def spec_read(filename):
     urls = []
@@ -49,23 +58,40 @@ def spec_read(filename):
             urls.append(line)
     return urls
 
+def spec_search(input_dir, patterns):
+    results = []
+
+    for root, _, files in os.walk(input_dir):
+        for fname in files:
+            path = os.path.join(root, fname)
+            for pattern in patterns:
+                if fnmatch.fnmatch(path, pattern):
+                    results.append(path)
+
+    return results
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-b', '--base-dir')
-    parser.add_argument('-c', '--clobber', action='store_true')
-    parser.add_argument('spec_file')
+    parser.add_argument('-i', '--input-dir', required=True, help='Path to astroconda-releases directory')
+    parser.add_argument('-o', '--output-dir', required=True, help='Path to output directory')
+    parser.add_argument('-c', '--clobber', action='store_true', help='Overwrite existing packages')
+    parser.add_argument('-p', '--pattern', action='append', help='Search tree for directories and filenames matching patterns (e.g. \'*/latest-*\')')
     args = parser.parse_args()
 
-    base_dir = args.base_dir
-    #spec_url = 'https://ssb.stsci.edu/releases/jwstdp/0.13.8/latest-linux'
-    spec_url = args.spec_file
-    spec_dir = os.path.join('specs', base_dir)
+    input_dir = args.input_dir
+    output_dir = args.output_dir
 
-    spec_file = download(spec_url, destdir=spec_dir)
-    urls = spec_read(spec_file)
+    pattern = ['*']
+    if args.pattern:
+        pattern = args.pattern
 
-    for url in urls:
-        new_channel = os.path.join(base_dir, channel_dir(url))
-        download(url, new_channel, clobber=args.clobber);
+    for spec in spec_search(input_dir, pattern):
+        urls = spec_read(spec)
+        channel_parent = channel_dir(spec)
+        for url in urls:
+            channel_sibling = channel_dir(url)
+            new_channel = os.path.join(output_dir, channel_parent, channel_sibling)
+            download(url, destdir=new_channel, clobber=args.clobber);
+
 
