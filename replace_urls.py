@@ -39,18 +39,6 @@ def channel_from_template(templates, needle):
             return dname
 
 
-def channel_from_url(url):
-    if '://' not in url:
-        raise ValueError('{} is not a valid URL')
-
-    uri_delim = '://'
-    uri_end = url.find(uri_delim) + len(uri_delim)
-    uri_orig = url[:uri_end]
-    url_parts = url[uri_end:].split('/', 2)
-
-    return uri_orig, url_parts
-
-
 def replace_urls(spec, prefix, templates, new_url):
     with open(spec, 'r') as fp:
         data = fp.read()
@@ -72,8 +60,6 @@ def replace_urls(spec, prefix, templates, new_url):
 
     return '\n'.join(new_data)
 
-    #data.replace(old_url, new_url)
-    #data.replace(old_channel, new_channel)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
